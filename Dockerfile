@@ -13,6 +13,6 @@ WORKDIR /workspace
 COPY pyproject.toml README.md ./
 COPY app ./app
 RUN python3 -m pip install --upgrade pip \
-    && python3 -m pip install .
+    && python3 -m pip install '.[test]'
 
 COPY migrations ./migrations
