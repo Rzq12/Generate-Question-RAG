@@ -1,2 +1,21 @@
 Materi/
 docs/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Local services and generated data
+postgres_data/
+*.log
+.DS_Store
