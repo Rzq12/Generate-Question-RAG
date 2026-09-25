@@ -2,9 +2,7 @@
 name = "generate-soal"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = ["pydantic>=2.0", "pydantic-settings>=2.0", "pymupdf>=1.24", "pillow>=10.0", "pytesseract>=0.3.13", "psycopg[binary]>=3.2", "openai>=1.0"]
+dependencies = ["pydantic>=2.0", "pydantic-settings>=2.0", "pillow>=10.0", "psycopg[binary]>=3.2", "docling>=2.43", "rapidocr-onnxruntime>=1.4", "sentence-transformers>=3.0", "faiss-cpu>=1.8"]
 
 [project.optional-dependencies]
-retrieval = ["faiss-cpu>=1.8"]
-
 test = ["pytest>=8.0"]
