@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DSN: postgresql://generate_soal:generate_soal@postgres:5432/generate_soal
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-BAAI/bge-m3}
-      EMBEDDING_DEVICE: ${EMBEDDING_DEVICE:-cuda}
+      EMBEDDING_DEVICE: ${EMBEDDING_DEVICE:-cpu}
       EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1024}
       IMAGE_ANALYSIS_MODE: ${IMAGE_ANALYSIS_MODE:-ocr}
       OCR_ENGINE: ${OCR_ENGINE:-rapidocr}
@@ -17,13 +17,6 @@ services:
     volumes:
       - ./Materi:/workspace/Materi:ro
       - hf_cache:/root/.cache/huggingface
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
     command: ["tail", "-f", "/dev/null"]
 
   postgres:

@@ -4,7 +4,7 @@
 
 The production path runs in Docker. Build and start it with `docker compose build app` and `docker compose up -d postgres app`.
 
-The container requests one NVIDIA GPU. Docker Desktop must have GPU support enabled and the NVIDIA Container Toolkit must be available to the Docker engine. RTX 3050 4 GB may require CPU offload or smaller batch sizes for BGE-M3.
+The default container runs on CPU so the first build does not download the CUDA runtime. Set `EMBEDDING_DEVICE=cuda` only after the CPU path works and the Docker engine exposes the NVIDIA GPU.
 
 Start PostgreSQL locally with `docker compose up -d postgres`. The migration runs on first database initialization.
 
