@@ -41,18 +41,5 @@ class PdfParser:
                 media_type=f"image/{extracted['ext']}",
                 data=extracted["image"],
             ))
-        return PageContent(document_id=document_id, page_number=page_number, text=page.get_text().strip(), source_hash=digest)
+        return PageContent(document_id=document_id, page_number=page_number, text=page.get_text().strip(), raw_images=tuple(images), source_hash=digest)
 
-    def parse_inputs(self, path: Path) -> tuple[ParsedDocument, tuple[ImageInput, ...]]:
-        document = self.parse(path)
-        with fitz.open(path) as pdf:
-            images = tuple(image for page in pdf for image in self._images_for_page(page))
-        return document, images
-
-    @staticmethod
-    def _images_for_page(page: fitz.Page) -> tuple[ImageInput, ...]:
-        result = []
-        for index, image in enumerate(page.get_images(full=True), start=1):
-            extracted = page.parent.extract_image(image[0])
-            result.append(ImageInput(page_number=page.number + 1, image_id=f"p{page.number + 1}-i{index}", media_type=f"image/{extracted['ext']}", data=extracted["image"]))
-        return tuple(result)

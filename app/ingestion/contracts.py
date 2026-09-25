@@ -43,6 +43,7 @@ class PageContent(BaseModel):
     document_id: str = Field(min_length=1)
     page_number: int = Field(ge=1)
     text: str = ""
+    raw_images: tuple[ImageInput, ...] = ()
     images: tuple[ImageContent, ...] = ()
     source_hash: str = Field(min_length=64, max_length=64)
 

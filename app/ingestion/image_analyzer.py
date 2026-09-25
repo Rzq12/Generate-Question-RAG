@@ -4,6 +4,8 @@ import base64
 import json
 from collections.abc import Callable
 from typing import Any
+from io import BytesIO
+from PIL import Image
 
 from .contracts import ImageContent, ImageInput, IngestionError
 
@@ -15,6 +17,8 @@ class LocalOcrAnalyzer:
 
     def analyze(self, image: ImageInput) -> ImageContent:
         try:
+            with Image.open(BytesIO(image.data)) as decoded:
+                decoded.verify()
             text = self._ocr(image.data).strip()
         except Exception as exc:
             raise IngestionError("ocr_error", str(exc)) from exc

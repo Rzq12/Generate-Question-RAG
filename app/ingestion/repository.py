@@ -34,7 +34,25 @@ class IngestionRepository:
         with self._connection.cursor() as cursor:
             cursor.execute("SELECT document_id, filename, file_hash FROM documents WHERE file_hash = %s", (file_hash,))
             row = cursor.fetchone()
-        if row is None:
-            return None
-        document_id, filename, digest = row
-        return ParsedDocument(document_id=document_id, filename=filename, file_hash=digest, pages=())
+            if row is None:
+                return None
+            document_id, filename, digest = row
+            cursor.execute("SELECT page_number, text_content, source_hash FROM pages WHERE document_id = %s ORDER BY page_number", (document_id,))
+            page_rows = cursor.fetchall()
+            cursor.execute("SELECT page_number, image_id, meaningful, extracted_text, description, confidence, provider, model FROM image_contents WHERE document_id = %s ORDER BY page_number, image_id", (document_id,))
+            image_rows = cursor.fetchall()
+        images_by_page: dict[int, list[dict[str, Any]]] = {}
+        for page_number, image_id, meaningful, text, description, confidence, provider, model in image_rows:
+            images_by_page.setdefault(page_number, []).append({
+                "image_id": image_id, "page_number": page_number, "meaningful": meaningful,
+                "extracted_text": text, "description": description, "confidence": confidence,
+                "provider": provider, "model": model,
+            })
+        pages = tuple({
+            "document_id": document_id,
+            "page_number": page_number,
+            "text": text,
+            "images": tuple(images_by_page.get(page_number, ())),
+            "source_hash": source_hash,
+        } for page_number, text, source_hash in page_rows)
+        return ParsedDocument(document_id=document_id, filename=filename, file_hash=digest, pages=pages)
