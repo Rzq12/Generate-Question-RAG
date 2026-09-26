@@ -15,4 +15,7 @@ class Settings(BaseSettings):
     embedding_dimensions: int = 1024
     external_image_api_allowed: bool = False
     faiss_index_type: str = "IndexFlatIP"
-    embedding_device: str = "cuda"
+    embedding_device: str = "cpu"
+    max_upload_bytes: int = 52428800
+    api_key: str = ""
+    faiss_index_path: str = "/workspace/data/faiss"

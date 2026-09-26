@@ -15,6 +15,16 @@ class FaissChunkIndex:
         self.index = faiss.IndexFlatIP(embedder.dimensions)
         self.mapping: list[str] = []
 
+    @classmethod
+    def load(cls, embedder: BGEEmbedder, directory: Path) -> "FaissChunkIndex":
+        result = cls(embedder)
+        index_path = directory / "chunks.faiss"
+        mapping_path = directory / "chunks.jsonl"
+        if index_path.exists() and mapping_path.exists():
+            result.index = faiss.read_index(str(index_path))
+            result.mapping = [json.loads(line)["chunk_id"] for line in mapping_path.read_text(encoding="utf-8").splitlines() if line]
+        return result
+
     def add(self, chunks: Iterable[tuple[str, str]]) -> None:
         items = list(chunks)
         if not items:

@@ -11,12 +11,16 @@ services:
       IMAGE_ANALYSIS_MODE: ${IMAGE_ANALYSIS_MODE:-ocr}
       OCR_ENGINE: ${OCR_ENGINE:-rapidocr}
       EXTERNAL_IMAGE_API_ALLOWED: ${EXTERNAL_IMAGE_API_ALLOWED:-false}
+      API_KEY: ${API_KEY:-}
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-52428800}
+      FAISS_INDEX_PATH: /workspace/data/faiss
     depends_on:
       postgres:
         condition: service_healthy
     volumes:
       - ./Materi:/workspace/Materi:ro
       - hf_cache:/root/.cache/huggingface
+      - faiss_data:/workspace/data/faiss
     command: ["uvicorn", "app.api:app", "--host", "0.0.0.0", "--port", "8000"]
     ports:
       - "8000:8000"
@@ -41,3 +45,4 @@ services:
 volumes:
   postgres_data:
   hf_cache:
+  faiss_data:

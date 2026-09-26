@@ -10,7 +10,7 @@ class IngestionRepository:
     def __init__(self, connection: Any) -> None:
         self._connection = connection
 
-    def save(self, document: ParsedDocument, chunks: tuple[Chunk, ...] = ()) -> None:
+    def save(self, document: ParsedDocument, chunks: tuple[Chunk, ...] = ()) -> bool:
         with self._connection.cursor() as cursor:
             cursor.execute(
                 "INSERT INTO documents (document_id, filename, file_hash) VALUES (%s, %s, %s) ON CONFLICT (file_hash) DO NOTHING",
@@ -18,7 +18,7 @@ class IngestionRepository:
             )
             if cursor.rowcount == 0:
                 self._connection.commit()
-                return
+                return False
             for page in document.pages:
                 cursor.execute(
                     "INSERT INTO pages (document_id, page_number, text_content, source_hash) VALUES (%s, %s, %s, %s)",
@@ -35,6 +35,15 @@ class IngestionRepository:
                     (chunk.chunk_id, chunk.document_id, chunk.page_number, chunk.text, chunk.source_hash),
                 )
         self._connection.commit()
+        return True
+
+    def search_chunks(self, chunk_ids: list[str]) -> list[dict[str, Any]]:
+        if not chunk_ids:
+            return []
+        with self._connection.cursor() as cursor:
+            cursor.execute("SELECT chunk_id, document_id, page_number, text_content FROM chunks WHERE chunk_id = ANY(%s)", (chunk_ids,))
+            rows = cursor.fetchall()
+        return [{"chunk_id": row[0], "document_id": row[1], "page_number": row[2], "text": row[3]} for row in rows]
 
     def get_by_hash(self, file_hash: str) -> ParsedDocument | None:
         with self._connection.cursor() as cursor:

@@ -13,6 +13,7 @@ WORKDIR /workspace
 COPY pyproject.toml README.md ./
 COPY app ./app
 RUN python3 -m pip install --upgrade pip \
+    && python3 -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.7.1 \
     && python3 -m pip install '.[test]'
 
 COPY migrations ./migrations
