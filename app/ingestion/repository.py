@@ -13,7 +13,7 @@ class IngestionRepository:
     def save(self, document: ParsedDocument, chunks: tuple[Chunk, ...] = ()) -> bool:
         with self._connection.cursor() as cursor:
             cursor.execute(
-                "INSERT INTO documents (document_id, filename, file_hash) VALUES (%s, %s, %s) ON CONFLICT (file_hash) DO NOTHING",
+                "INSERT INTO documents (document_id, filename, file_hash, status) VALUES (%s, %s, %s, 'processing') ON CONFLICT (file_hash) DO NOTHING",
                 (document.document_id, document.filename, document.file_hash),
             )
             if cursor.rowcount == 0:
@@ -36,6 +36,13 @@ class IngestionRepository:
                 )
         self._connection.commit()
         return True
+
+    def set_status(self, document_id: str, status: str, error_message: str | None = None) -> None:
+        if status not in {"processing", "completed", "failed"}:
+            raise ValueError("invalid document status")
+        with self._connection.cursor() as cursor:
+            cursor.execute("UPDATE documents SET status = %s, error_message = %s WHERE document_id = %s", (status, error_message, document_id))
+        self._connection.commit()
 
     def search_chunks(self, chunk_ids: list[str]) -> list[dict[str, Any]]:
         if not chunk_ids:

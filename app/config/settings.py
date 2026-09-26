@@ -18,4 +18,5 @@ class Settings(BaseSettings):
     embedding_device: str = "cpu"
     max_upload_bytes: int = 52428800
     api_key: str = ""
+    require_api_key: bool = False
     faiss_index_path: str = "/workspace/data/faiss"

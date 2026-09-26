@@ -7,6 +7,7 @@ import numpy as np
 
 class BGEEmbedder:
     def __init__(self, model_name: str = "BAAI/bge-m3", device: str = "cpu", dimensions: int = 1024, model: Any = None) -> None:
+        self.model = model_name
         self.dimensions = dimensions
         self._model = model
         if model is None:

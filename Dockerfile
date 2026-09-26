@@ -17,3 +17,5 @@ RUN python3 -m pip install --upgrade pip \
     && python3 -m pip install '.[test]'
 
 COPY migrations ./migrations
+
+CMD ["uvicorn", "app.api:app", "--host", "0.0.0.0", "--port", "8000"]

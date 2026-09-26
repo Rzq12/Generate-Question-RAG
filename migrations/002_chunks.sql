@@ -8,3 +8,6 @@ CREATE TABLE IF NOT EXISTS chunks (
 );
 
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'completed';
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS error_message TEXT;
+ALTER TABLE documents DROP CONSTRAINT IF EXISTS documents_status_check;
+ALTER TABLE documents ADD CONSTRAINT documents_status_check CHECK (status IN ('processing', 'completed', 'failed'));

@@ -54,6 +54,7 @@ class ParsedDocument(BaseModel):
     filename: str = Field(min_length=1)
     file_hash: str = Field(min_length=64, max_length=64)
     pages: tuple[PageContent, ...]
+    docling_document: object | None = Field(default=None, exclude=True)
 
 
 class DocumentParser(Protocol):

@@ -13,6 +13,7 @@ from .ingestion.docling_parser import DoclingParser
 from .ingestion.repository import IngestionRepository
 from .retrieval.embeddings import BGEEmbedder
 from .retrieval.faiss_index import FaissChunkIndex
+from .questions.generator import GroundedQuestionGenerator
 from .config.settings import Settings
 import psycopg
 
@@ -24,7 +25,7 @@ _embedder: BGEEmbedder | None = None
 _index: FaissChunkIndex | None = None
 
 def _authorized(api_key: str | None) -> None:
-    if settings.api_key and api_key != settings.api_key:
+    if (settings.require_api_key or settings.api_key) and api_key != settings.api_key:
         raise HTTPException(401, "Invalid API key")
 
 
@@ -62,12 +63,20 @@ async def upload_document(file: UploadFile = File(...), x_api_key: str | None = 
         document = DoclingParser().parse(path)
         chunks = DocumentChunker().chunk(document)
         with psycopg.connect(settings.postgres_dsn) as connection:
-            IngestionRepository(connection).save(document, chunks)
+            repository = IngestionRepository(connection)
+            repository.save(document, chunks)
+            repository.set_status(document.document_id, "processing")
         _embedder = _embedder or BGEEmbedder(settings.embedding_model, settings.embedding_device, settings.embedding_dimensions)
         _index = _index or FaissChunkIndex(_embedder)
         _index.add([(chunk.chunk_id, chunk.text) for chunk in chunks])
         _index.save(Path(settings.faiss_index_path))
+        with psycopg.connect(settings.postgres_dsn) as connection:
+            IngestionRepository(connection).set_status(document.document_id, "completed")
     except Exception as exc:
+        if "document" in locals():
+            with psycopg.connect(settings.postgres_dsn) as connection:
+                IngestionRepository(connection).set_status(document.document_id, "failed", str(exc))
+        logger.exception("document ingestion failed")
         raise HTTPException(422, str(exc)) from exc
     finally:
         path.unlink(missing_ok=True)
@@ -100,4 +109,12 @@ def generate_questions(payload: dict[str, Any], x_api_key: str | None = Header(d
     sources = payload.get("sources", [])
     if not sources:
         raise HTTPException(400, "sources are required")
-    return {"questions": [{"type": "essay", "question": "Jelaskan gagasan utama dari sumber berikut.", "answer": source.get("text", ""), "reference": {"chunk_id": source.get("chunk_id"), "page_number": source.get("page_number")}} for source in sources]}
+    try:
+        questions = GroundedQuestionGenerator().generate(
+            sources,
+            count=int(payload.get("count", 3)),
+            question_type=str(payload.get("type", "essay")),
+        )
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"questions": questions}
