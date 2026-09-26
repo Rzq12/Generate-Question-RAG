@@ -25,6 +25,11 @@ class FaissChunkIndex:
         index_path = directory / "chunks.faiss"
         mapping_path = directory / "chunks.jsonl"
         if index_path.exists() and mapping_path.exists():
+            metadata_path = directory / "metadata.json"
+            if metadata_path.exists():
+                metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                if metadata.get("dimensions") != embedder.dimensions or metadata.get("model") != embedder.model:
+                    raise ValueError("FAISS metadata does not match embedding configuration")
             result.index = faiss.read_index(str(index_path))
             if result.index.d != embedder.dimensions:
                 raise ValueError("FAISS index dimension does not match embedding model")
@@ -40,6 +45,11 @@ class FaissChunkIndex:
         vectors = self.embedder.encode([text for _, text in items])
         self.index.add(vectors)
         self.mapping.extend(chunk_id for chunk_id, _ in items)
+
+    def rebuild(self, chunks: Iterable[tuple[str, str]]) -> None:
+        self.index = faiss.IndexFlatIP(self.embedder.dimensions)
+        self.mapping = []
+        self.add(chunks)
 
     def save(self, directory: Path) -> None:
         with self._lock:

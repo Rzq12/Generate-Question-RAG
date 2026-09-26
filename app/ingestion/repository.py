@@ -48,9 +48,14 @@ class IngestionRepository:
         if not chunk_ids:
             return []
         with self._connection.cursor() as cursor:
-            cursor.execute("SELECT chunk_id, document_id, page_number, text_content FROM chunks WHERE chunk_id = ANY(%s)", (chunk_ids,))
+            cursor.execute("SELECT c.chunk_id, c.document_id, c.page_number, c.text_content, c.source_hash, d.filename FROM chunks c JOIN documents d ON d.document_id = c.document_id WHERE c.chunk_id = ANY(%s) AND d.status = 'completed'", (chunk_ids,))
             rows = cursor.fetchall()
-        return [{"chunk_id": row[0], "document_id": row[1], "page_number": row[2], "text": row[3]} for row in rows]
+        return [{"chunk_id": row[0], "document_id": row[1], "page_number": row[2], "text": row[3], "source_hash": row[4], "filename": row[5]} for row in rows]
+
+    def all_completed_chunks(self) -> list[tuple[str, str]]:
+        with self._connection.cursor() as cursor:
+            cursor.execute("SELECT c.chunk_id, c.text_content FROM chunks c JOIN documents d ON d.document_id = c.document_id WHERE d.status = 'completed' ORDER BY c.chunk_id")
+            return [(row[0], row[1]) for row in cursor.fetchall()]
 
     def get_by_hash(self, file_hash: str) -> ParsedDocument | None:
         with self._connection.cursor() as cursor:

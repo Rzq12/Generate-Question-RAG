@@ -11,6 +11,8 @@ from fastapi import FastAPI, File, Header, HTTPException, UploadFile
 from .ingestion.chunker import DocumentChunker
 from .ingestion.docling_parser import DoclingParser
 from .ingestion.repository import IngestionRepository
+from .ingestion.pipeline import ingest_document
+from .ingestion.providers import create_local_ocr_analyzer
 from .retrieval.embeddings import BGEEmbedder
 from .retrieval.faiss_index import FaissChunkIndex
 from .questions.generator import GroundedQuestionGenerator
@@ -34,7 +36,9 @@ def health() -> dict[str, str]:
     try:
         with psycopg.connect(settings.postgres_dsn) as connection:
             connection.execute("SELECT 1")
-        return {"status": "ok", "database": "ok"}
+            connection.execute("SELECT 1 FROM documents LIMIT 1")
+            connection.execute("SELECT 1 FROM chunks LIMIT 1")
+        return {"status": "ok", "database": "ok", "schema": "ok"}
     except Exception:
         raise HTTPException(503, "Database unavailable")
 
@@ -60,22 +64,26 @@ async def upload_document(file: UploadFile = File(...), x_api_key: str | None = 
             existing = IngestionRepository(connection).get_by_hash(digest)
         if existing:
             return {"document_id": existing.document_id, "file_hash": digest, "status": "duplicate"}
-        document = DoclingParser().parse(path)
+        analyzer = create_local_ocr_analyzer() if settings.image_analysis_mode == "ocr" else None
+        document = ingest_document(path, analyzer)
         chunks = DocumentChunker().chunk(document)
         with psycopg.connect(settings.postgres_dsn) as connection:
             repository = IngestionRepository(connection)
             repository.save(document, chunks)
             repository.set_status(document.document_id, "processing")
         _embedder = _embedder or BGEEmbedder(settings.embedding_model, settings.embedding_device, settings.embedding_dimensions)
-        _index = _index or FaissChunkIndex(_embedder)
+        _index = _index or FaissChunkIndex.load(_embedder, Path(settings.faiss_index_path))
         _index.add([(chunk.chunk_id, chunk.text) for chunk in chunks])
         _index.save(Path(settings.faiss_index_path))
         with psycopg.connect(settings.postgres_dsn) as connection:
             IngestionRepository(connection).set_status(document.document_id, "completed")
     except Exception as exc:
         if "document" in locals():
-            with psycopg.connect(settings.postgres_dsn) as connection:
-                IngestionRepository(connection).set_status(document.document_id, "failed", str(exc))
+            try:
+                with psycopg.connect(settings.postgres_dsn) as connection:
+                    IngestionRepository(connection).set_status(document.document_id, "failed", str(exc))
+            except Exception:
+                logger.exception("could not mark document ingestion as failed")
         logger.exception("document ingestion failed")
         raise HTTPException(422, str(exc)) from exc
     finally:

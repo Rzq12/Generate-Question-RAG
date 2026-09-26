@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from openai import OpenAI
 from rapidocr_onnxruntime import RapidOCR
+from PIL import Image
+from io import BytesIO
+import numpy as np
 
 from .image_analyzer import LocalOcrAnalyzer, OpenAICompatibleVlmAnalyzer
 
@@ -10,7 +13,8 @@ def create_local_ocr_analyzer() -> LocalOcrAnalyzer:
     engine = RapidOCR()
 
     def recognize(data: bytes) -> str:
-        result, _ = engine(data)
+        with Image.open(BytesIO(data)) as image:
+            result, _ = engine(np.asarray(image.convert("RGB")))
         return "\n".join(str(item[1]) for item in (result or []) if len(item) > 1)
 
     return LocalOcrAnalyzer(recognize, model="rapidocr-onnxruntime")

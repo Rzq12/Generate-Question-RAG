@@ -4,7 +4,7 @@ import hashlib
 from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
 
-from .contracts import ImageAnalyzer, ImageContent, ImageInput, IngestionError, PageContent, ParsedDocument
+from .contracts import ImageAnalyzer, ImageInput, IngestionError, PageContent, ParsedDocument
 
 
 class DoclingParser:
@@ -37,27 +37,31 @@ class DoclingParser:
             doc = result.document
             page_values = []
             for page_number in range(1, doc.num_pages() + 1):
-                page_images: list[ImageContent] = []
-                if self._image_analyzer is not None:
-                    for image in self._images_for_page(doc, page_number, document_id):
-                        page_images.append(self._image_analyzer.analyze(image))
+                raw_images = self._images_for_page(doc, page_number, document_id)
                 page_values.append(PageContent(
                     document_id=document_id,
                     page_number=page_number,
                     text=doc.export_to_markdown(page_no=page_number).strip(),
-                    images=tuple(page_images),
+                    raw_images=raw_images,
                     source_hash=digest,
                 ))
             pages = tuple(page_values)
         except Exception as exc:
             raise IngestionError("docling_read_error", str(exc)) from exc
-        return ParsedDocument(
+        parsed = ParsedDocument(
             document_id=document_id,
             filename=path.name,
             file_hash=digest,
             pages=pages,
             docling_document=doc,
         )
+        if self._image_analyzer is None:
+            return parsed
+        pages = []
+        for page in parsed.pages:
+            images = tuple(self._image_analyzer.analyze(image) for image in page.raw_images)
+            pages.append(page.model_copy(update={"images": tuple(item for item in images if item.meaningful)}))
+        return parsed.model_copy(update={"pages": tuple(pages)})
 
     @staticmethod
     def _images_for_page(doc: object, page_number: int, document_id: str) -> tuple[ImageInput, ...]:
