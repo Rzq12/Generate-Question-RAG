@@ -3,13 +3,14 @@ from __future__ import annotations
 from typing import Any
 
 from .contracts import ParsedDocument
+from .chunker import Chunk
 
 
 class IngestionRepository:
     def __init__(self, connection: Any) -> None:
         self._connection = connection
 
-    def save(self, document: ParsedDocument) -> None:
+    def save(self, document: ParsedDocument, chunks: tuple[Chunk, ...] = ()) -> None:
         with self._connection.cursor() as cursor:
             cursor.execute(
                 "INSERT INTO documents (document_id, filename, file_hash) VALUES (%s, %s, %s) ON CONFLICT (file_hash) DO NOTHING",
@@ -28,6 +29,11 @@ class IngestionRepository:
                         "INSERT INTO image_contents (document_id, page_number, image_id, meaningful, extracted_text, description, confidence, provider, model) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
                         (document.document_id, image.page_number, image.image_id, image.meaningful, image.extracted_text, image.description, image.confidence, image.provider, image.model),
                     )
+            for chunk in chunks:
+                cursor.execute(
+                    "INSERT INTO chunks (chunk_id, document_id, page_number, text_content, source_hash) VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
+                    (chunk.chunk_id, chunk.document_id, chunk.page_number, chunk.text, chunk.source_hash),
+                )
         self._connection.commit()
 
     def get_by_hash(self, file_hash: str) -> ParsedDocument | None:
